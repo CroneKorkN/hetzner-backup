@@ -38,7 +38,7 @@ try 'cd "$BOX"'
 while read -r target; do
   if [[ "$target" == "" ]]; then continue; fi
   while [[ "true" ]]; do
-    rsync -REva "$target" "$BOX"
+    rsync -PREva "$target" "$BOX"
     if [[ $? == 0 ]]; then break; fi
     sleep 30
   done
@@ -55,3 +55,5 @@ if [[ "$LAST_SNAPHOT_DAYS_OLD" -gt -1 ]]; then
   curl -X DELETE --user "$HETZNER_API_USER":"$HETZNER_API_PASS"  https://robot-ws.your-server.de/storagebox/"$STORAGEBOX_ID"/snapshot/"$FIRST_SNAPSHOT_NAME"
   curl -X POST --user "$HETZNER_API_USER":"$HETZNER_API_PASS"  https://robot-ws.your-server.de/storagebox/"$STORAGEBOX_ID"/snapshot
 fi
+
+
