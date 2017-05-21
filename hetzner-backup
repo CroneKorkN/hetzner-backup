@@ -1,14 +1,15 @@
 #!/bin/bash
 
 # vars
-BOX_RAW="/mnt/box-raw"
-BOX="/mnt/box"
+BOX_RAW=""
+BOX=""
 ENCFS_PASS=""
-TARGETS="/tank/test"
+TARGETS=""
 HETZNER_API_USER=""
 HETZNER_API_PASS=""
 STORAGEBOX_ID=""
 STORAGEBOX_USER=""
+SNAPSHOT_FREQUENCY="60" # days
 
 source /etc/hetzner-backup/config
 
@@ -50,7 +51,7 @@ LAST_SNAPSHOT_TIMESTAMP=$(date --date="$LAST_SNAPSHOT_DATE" +%s)
 NOW=$(date +%s)
 LAST_SNAPHOT_DAYS_OLD=$(expr $(expr $(date +%s) - "$LAST_SNAPSHOT_TIMESTAMP") / 86400)
 
-if [[ "$LAST_SNAPHOT_DAYS_OLD" -gt -1 ]]; then
+if [[ "$LAST_SNAPHOT_DAYS_OLD" -gt "$SNAPSHOT_FREQUENCY" ]]; then
   FIRST_SNAPSHOT_NAME=$(curl --user "$HETZNER_API_USER":"$HETZNER_API_PASS"  https://robot-ws.your-server.de/storagebox/"$STORAGEBOX_ID"/snapshot | jq ".[0].snapshot.name" | tr -d \")
   curl -X DELETE --user "$HETZNER_API_USER":"$HETZNER_API_PASS"  https://robot-ws.your-server.de/storagebox/"$STORAGEBOX_ID"/snapshot/"$FIRST_SNAPSHOT_NAME"
   curl -X POST --user "$HETZNER_API_USER":"$HETZNER_API_PASS"  https://robot-ws.your-server.de/storagebox/"$STORAGEBOX_ID"/snapshot
