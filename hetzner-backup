@@ -10,6 +10,7 @@ HETZNER_API_PASS=""
 STORAGEBOX_ID=""
 STORAGEBOX_USER=""
 SNAPSHOT_FREQUENCY="60" # days
+LOGDIR=/var/log/hetzner-backup
 
 source /etc/hetzner-backup/config
 
@@ -21,14 +22,19 @@ function try {
     exit 1
   fi
 }
+function log {
+  echo "$(date): $*" >> "$LOGDIR"
+}
 
 # unmount
 if mount | grep " $BOX " > /dev/null; then
-  try umount "$BOX"
+  try umount -l "$BOX"
 fi
 if mount | grep " $BOX_RAW " > /dev/null; then
-  try umount "$BOX_RAW"
+  try umount -l "$BOX_RAW"
 fi
+
+sleep 5
 
 # mount
 try "sshfs -o reconnect,allow_other,noatime $STORAGEBOX_USER@$STORAGEBOX_USER.your-storagebox.de:/ $BOX_RAW"
@@ -39,9 +45,11 @@ try 'cd "$BOX"'
 while read -r target; do
   if [[ "$target" == "" ]]; then continue; fi
   while [[ "true" ]]; do
-    rsync -PREva "$target" "$BOX"
+    log "starting to sync $target"
+    rsync --partial --archive --numeric-id --progress --relative  --progress  "$target" "$BOX"
     if [[ $? == 0 ]]; then break; fi
     sleep 30
+    log "retrying sync of $target"
   done
 done <<< "$TARGETS"
 
