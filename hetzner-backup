@@ -10,12 +10,13 @@ HETZNER_API_PASS=""
 STORAGEBOX_ID=""
 STORAGEBOX_USER=""
 SNAPSHOT_FREQUENCY="60" # days
-LOGDIR=/var/log/hetzner-backup
+LOGDIR=/var/log/hetzner-backup.log
 
 source /etc/hetzner-backup/config
 
 # functions
 function try {
+  echo $*
   eval $*
   if [[ $? != 0 ]]; then
     echo "failed: $*"
@@ -23,10 +24,12 @@ function try {
   fi
 }
 function log {
+  echo "$(date): $*"
   echo "$(date): $*" >> "$LOGDIR"
 }
 
 # unmount
+log unmounting
 if mount | grep " $BOX " > /dev/null; then
   try umount -l "$BOX"
 fi
@@ -37,16 +40,18 @@ fi
 sleep 5
 
 # mount
+log mounting
 try "sshfs -o reconnect,allow_other,noatime $STORAGEBOX_USER@$STORAGEBOX_USER.your-storagebox.de:/ $BOX_RAW"
 try 'echo "$ENCFS_PASS" | encfs --stdinpass -o allow_other,noatime $BOX_RAW $BOX'
 
 # upload
+log uploading
 try 'cd "$BOX"'
 while read -r target; do
   if [[ "$target" == "" ]]; then continue; fi
   while [[ "true" ]]; do
     log "starting to sync $target"
-    rsync --partial --archive --numeric-id --progress --relative  --progress  "$target" "$BOX"
+    rsync --partial --archive --numeric-ids --progress --relative --info=progress2 --no-i-r  "$target" "$BOX"
     if [[ $? == 0 ]]; then break; fi
     sleep 30
     log "retrying sync of $target"
@@ -60,9 +65,12 @@ NOW=$(date +%s)
 LAST_SNAPHOT_DAYS_OLD=$(expr $(expr $(date +%s) - "$LAST_SNAPSHOT_TIMESTAMP") / 86400)
 
 if [[ "$LAST_SNAPHOT_DAYS_OLD" -gt "$SNAPSHOT_FREQUENCY" ]]; then
+  log snapshotting
   FIRST_SNAPSHOT_NAME=$(curl --user "$HETZNER_API_USER":"$HETZNER_API_PASS"  https://robot-ws.your-server.de/storagebox/"$STORAGEBOX_ID"/snapshot | jq ".[0].snapshot.name" | tr -d \")
   curl -X DELETE --user "$HETZNER_API_USER":"$HETZNER_API_PASS"  https://robot-ws.your-server.de/storagebox/"$STORAGEBOX_ID"/snapshot/"$FIRST_SNAPSHOT_NAME"
   curl -X POST --user "$HETZNER_API_USER":"$HETZNER_API_PASS"  https://robot-ws.your-server.de/storagebox/"$STORAGEBOX_ID"/snapshot
+else
+  log ommit snapshotting
 fi
 
 
